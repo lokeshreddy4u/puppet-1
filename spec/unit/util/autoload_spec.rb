@@ -51,13 +51,31 @@ describe Puppet::Util::Autoload do
       @autoload.search_directories.should == %w{/one /two /libdir1 /lib/dir/two /third/lib/dir} + $LOAD_PATH
     end
 
+    it "should not try to merge rubygems dirs when called from the feature system" do
+      @autoload = Puppet::Util::Autoload.new("foo", "puppet/feature")
+      Puppet.features.expects(:rubygems?).never
+      @autoload.gemsearchpaths
+    end
+
+    it "should save the gem load path to the thread local cache" do
+      Thread.current[:gemsearch_directories] = nil
+      Gem.expects(:all_load_paths).returns(["foo/loaddir"])
+
+      @autoload = Puppet::Util::Autoload.new("foo", "loaddir")
+      @autoload.gemsearchpaths
+
+      Thread.current[:gemsearch_directories].should == ["foo/loaddir"]
+    end
+
     it "should include in its search path all of the unique search directories that have a subdirectory matching the autoload path" do
       @autoload = Puppet::Util::Autoload.new("foo", "loaddir")
       @autoload.expects(:search_directories).returns %w{/one /two /three /three}
+      @autoload.expects(:gemsearchpaths).returns %w{/four /four}
       FileTest.expects(:directory?).with("/one/loaddir").returns true
       FileTest.expects(:directory?).with("/two/loaddir").returns false
       FileTest.expects(:directory?).with("/three/loaddir").returns true
-      @autoload.searchpath.should == ["/one/loaddir", "/three/loaddir"]
+      FileTest.expects(:directory?).with("/four/loaddir").returns true
+      @autoload.searchpath.should == ["/four/loaddir", "/one/loaddir", "/three/loaddir"]
     end
   end
 

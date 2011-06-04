@@ -85,6 +85,16 @@ describe Puppet::Configurer, "when executing a catalog run" do
     Puppet::Transaction::Report.indirection.stubs(:save)
   end
 
+  it "should clear the thread local caches" do
+      Thread.current[:env_module_directories] = false
+      Thread.current[:gemsearch_directories] = false
+
+      @agent.run
+
+      Thread.current[:env_module_directories].should == nil
+      Thread.current[:gemsearch_directories].should == nil
+  end
+
   it "should prepare for the run" do
     @agent.expects(:prepare)
 

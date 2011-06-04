@@ -156,9 +156,11 @@ class Puppet::Configurer
       return
     end
   ensure
-    # Make sure we forget the retained module_directories of any autoload
-    # we might have used.
+    # Between Puppet runs we need to forget the cached values.  This lets
+    # us for example pick up on new functions installed by gems or new
+    # modules being added without the daemon being restarted.
     Thread.current[:env_module_directories] = nil
+    Thread.current[:gemsearch_directories] = nil
 
     # Now close all of our existing http connections, since there's no
     # reason to leave them lying open.

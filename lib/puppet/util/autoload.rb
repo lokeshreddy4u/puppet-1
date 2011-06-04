@@ -124,9 +124,31 @@ class Puppet::Util::Autoload
     searchpath.map { |dir| Dir.glob("#{dir}/*.rb") }.flatten
   end
 
-  # The list of directories to search through for loadable plugins.
+  # Return the Gem search path, unfortunately the features system also uses the
+  # autoloader so we do not try to resolve this during features discovery as it
+  # can cause a loop between features.rubygems? and this which eventually exhausts
+  # the stack.
+  #
+  # We have to cache this locally to the thread as the heavy use of the the
+  # autoloader by puppet means the without caching it would have a big negative
+  # impact on performance.
+  #
+  # This cache is being cleared after compiles and runs in puppet/configurer.rb and
+  # puppet/parser/compiler.rb
+  def gemsearchpaths
+    unless @path == "puppet/feature"
+      if Puppet.features.rubygems?
+        return Thread.current[:gemsearch_directories] ||= Gem.all_load_paths
+      end
+    end
+
+    return []
+  end
+
+  # The list of directories to search through for loadable plugins.  We search gem paths first
+  # so that people can use the gem packages to override core puppet features if they wish.
   def searchpath(env=nil)
-    search_directories(env).uniq.collect { |d| File.join(d, @path) }.find_all { |d| FileTest.directory?(d) }
+    [gemsearchpaths, search_directories(env)].flatten.uniq.collect { |d| File.join(d, @path) }.find_all { |d| FileTest.directory?(d) }
   end
 
   def module_directories(env=nil)

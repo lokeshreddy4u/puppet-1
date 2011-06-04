@@ -75,6 +75,24 @@ describe Puppet::Parser::Compiler do
     Puppet::Parser::Compiler.compile(@node).should equal(converted_catalog)
   end
 
+  it "should clear the thread local caches before compile" do
+    compiler = stub 'compiler'
+    Puppet::Parser::Compiler.expects(:new).with(@node).returns compiler
+    catalog = stub 'catalog'
+    compiler.expects(:compile).returns catalog
+    catalog.expects(:to_resource)
+
+    [:known_resource_types, :env_module_directories, :gemsearch_directories].each do |var|
+        Thread.current[var] = "rspec"
+    end
+
+    Puppet::Parser::Compiler.compile(@node)
+
+    [:known_resource_types, :env_module_directories, :gemsearch_directories].each do |var|
+        Thread.current[var].should == nil
+    end
+  end
+
   it "should fail intelligently when a class-level compile fails" do
     Puppet::Parser::Compiler.expects(:new).raises ArgumentError
     lambda { Puppet::Parser::Compiler.compile(@node) }.should raise_error(Puppet::Error)
